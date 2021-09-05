@@ -1,0 +1,103 @@
+clear all
+close all
+
+%%%%%% Descripción %%%%%
+%Programación de una red neuronal de una sola capa para aproximar
+%funciones. La inicialización de parámetros será según el libro 
+%'Neural Networks and Deep Learning' de Michael Nielsen. 
+%Para la optimización de parámetros se usará backpropagation y el método
+%del descenso de gradiente.
+%%%%%%
+   
+%Parámetros que cambiaremos para ir probando.
+tic;                %Iniciamos el tiempo de ejecución
+Nneuronas = 1000;   %Número de neuronas de la capa oculta
+x=0:0.01:1;         %Puntos que usaremos en el conjunto de entrenamiento, de forma que el conjunto de entrenamiento será {x,f(x)}
+N=length(x);        %Número de datos de entrenamiento
+Nepoch=2000;        %Número de iteraciones
+lambda = 0.001;     %Tasa de aprendizaje 
+
+rng(1);              %Fijamos una semilla para poder comparar resultados
+
+%Inicialización de parámetros:
+C = zeros(1,Nepoch);              
+W3 = zeros(Nepoch,Nneuronas);
+W2 = zeros(Nneuronas,Nepoch);
+B2 = zeros(Nneuronas,Nepoch);
+B3 = zeros(1,Nepoch);
+tiempo = zeros(1,Nepoch);         %Variable que almacena los tiempos de ejecución
+a=-sqrt(6)/sqrt(Nneuronas+1);     %Rango de inicialización Xavier
+b=sqrt(6)/sqrt(Nneuronas+1);
+
+for i=1:Nneuronas
+    W2(i,1)=-999;
+end
+
+for i=1:Nneuronas/2
+    W3(1,2*i) = (b-a)*rand(1,1)+a;
+    W3(1,2*i-1) = -W3(1,2*i);
+end
+B1(1,1) = (b-a)*rand(1,1)+a;
+B2(1,1)=0;
+B2(2,1)= (1/(Nneuronas*0.5))*999;
+for i=2:Nneuronas/2
+    B2(2*i-1,1)=B2(2*i-2,1);
+    B2(2*i,1)=B2(2*i-1,1)+(1/(Nneuronas*0.5))*999;
+end
+
+%Cálculo del descenso de gradiente y el valor que toma la función de costes en cada iteración
+for epoch=1:Nepoch     
+     for i=1:N          
+         C(epoch)=C(epoch)+(fhat(W2(:,epoch),W3(epoch,:),...
+             B2(:,epoch),B3(:,epoch),x(i))-f((x(i)))).^2;
+     end
+    C(epoch)=C(epoch)/N;
+ 
+    dW3 = zeros(Nneuronas,1);
+    dW2 = zeros(Nneuronas,1);
+    dB2 = zeros(Nneuronas,1);
+    dB3 = zeros(1,1);
+    for i=1:N
+        dW3 = dW3 + (fhat(W2(:,epoch),W3(epoch,:),B2(:,epoch),...
+            B3(:,epoch),x(i))-f(x(i)))*sig_pri(W3(epoch,:)*...
+            sig(W2(:,epoch)*x(i)+B2(:,epoch))+B3(:,epoch))*...
+            sig(W2(:,epoch)*x(i)+B2(:,epoch));
+        dB3 = dB3 + (fhat(W2(:,epoch),W3(epoch,:),B2(:,epoch),...
+            B3(:,epoch),x(i))-f(x(i)))*sig_pri(W3(epoch,:)*...
+            sig(W2(:,epoch)*x(i)+B2(:,epoch))+B3(:,epoch));
+        dW2 = dW2 + sig_pri(W2(:,epoch)*x(i)+B2(:,epoch)).*...
+            transpose(W3(epoch,:))*(fhat(W2(:,epoch),W3(epoch,:),...
+            B2(:,epoch),B3(:,epoch),x(i))-f(x(i)))*sig_pri(W3(epoch,:)...
+            *sig(W2(:,epoch)*x(i)+B2(:,epoch))+B3(:,epoch))*x(i);
+        dB2 = dB2 + sig_pri(W2(:,epoch)*x(i)+B2(:,epoch)).*...
+            transpose(W3(epoch,:))*(fhat(W2(:,epoch),W3(epoch,:),...
+            B2(:,epoch),B3(:,epoch),x(i))-f(x(i)))*sig_pri(W3(epoch,:)...
+            *sig(W2(:,epoch)*x(i)+B2(:,epoch))+B3(:,epoch));
+    end
+    W2(:,epoch+1) = W2(:,epoch) - lambda*dW2;               %Actualización de los pesos y los sesgos
+    W3(epoch+1,:) = W3(epoch,:) - lambda*transpose(dW3);
+    B2(:,epoch+1) = B2(:,epoch) - lambda*dB2;
+    B3(:,epoch+1) = B3(:,epoch) - lambda*dB3;
+    tiempo(epoch) = toc;                                   
+end
+
+[min,argmin]=min(C);     %Vemos cuál ha sido el mínimo de C y en qué punto se alcanza
+
+%Representación gráfica de la red neuronal
+plot(linspace(0,1,1000),f(linspace(0,1,1000)),'b',...
+    x,fhat(W2(:,Nepoch),W3(Nepoch,:),B2(:,Nepoch),B3(:,Nepoch),x),'g');
+legend('f^*','f');
+
+%Definición de funciones
+function y = sig(z)
+    y = 1./(1.0+ exp(-z)); 
+end
+function y = sig_pri(z)
+    y = sig(z).*(1-sig(z)); 
+end
+function y=f(z)
+    y = 0.2+0.1*z.^2+0.3*z.*sin(15*z)+0.05*cos(50*z); 
+end
+function y=fhat(w2,w3,b2,b3,z)
+    y = sig(w3*sig(w2*z+b2)+b3);
+end
